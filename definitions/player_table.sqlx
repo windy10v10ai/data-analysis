@@ -19,7 +19,7 @@ SELECT
   JSON_EXTRACT_SCALAR(DATA, '$.winCount') AS winCount,
   document_id
 FROM
-  `windy10v10ai.firestore_export.Players_raw_changelog`
+  ${ref("firestore_export", "Players_raw_latest")}
 
 WHERE
   timestamp > timestamp_checkpoint
