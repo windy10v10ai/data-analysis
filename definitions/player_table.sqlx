@@ -1,0 +1,37 @@
+config {
+    type: "incremental",
+    uniqueKey: ["event_id"],
+}
+
+SELECT
+  timestamp,
+  event_id,
+  document_name,
+  operation,
+  JSON_EXTRACT_SCALAR(DATA, '$.conductPoint') AS conductPoint,
+  JSON_EXTRACT_SCALAR(DATA, '$.disconnectCount') AS disconnectCount,
+  JSON_EXTRACT_SCALAR(DATA, '$.id') AS id,
+  JSON_EXTRACT_SCALAR(DATA, '$.lastMatchTime._seconds') AS lastMatchTime_seconds,
+  JSON_EXTRACT_SCALAR(DATA, '$.lastMatchTime._nanoseconds') AS lastMatchTime_nanoseconds,
+  JSON_EXTRACT_SCALAR(DATA, '$.matchCount') AS matchCount,
+  JSON_EXTRACT_SCALAR(DATA, '$.memberPointTotal') AS memberPointTotal,
+  JSON_EXTRACT_SCALAR(DATA, '$.seasonPointTotal') AS seasonPointTotal,
+  JSON_EXTRACT_SCALAR(DATA, '$.winCount') AS winCount,
+  document_id
+FROM
+  `windy10v10ai.firestore_export.Players_raw_changelog`
+
+WHERE
+  timestamp > timestamp_checkpoint
+  -- 在 pre_operations 中声明变量以避免全表扫描
+
+pre_operations {
+  DECLARE
+    timestamp_checkpoint DEFAULT (
+    ${
+        when(incremental(),
+            `SELECT max(timestamp) FROM ${self()}`,
+            `SELECT timestamp("2000-01-01")`)
+    }
+    );
+}
