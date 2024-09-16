@@ -1,0 +1,62 @@
+config {
+  type: "table",
+  schema: "your_schema",  -- 请替换为您的实际 schema 名称
+  tags: ["monthly_metrics"],
+}
+
+with player_changes as (
+  -- 获取最近一个月的玩家变更记录
+  select
+    document_id,
+    timestamp,
+    operation,
+    cast(json_value(data, '$.seasonPointTotal') as int64) as seasonPointTotal
+  from
+    ${ref("players_raw_changelog")}
+  where
+    timestamp >= DATE_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)
+    and operation in ('INSERT', 'UPDATE')  -- 只考虑积分变动的操作
+),
+
+player_points_changes as (
+  -- 计算每个玩家的积分变动
+  select
+    player_id,
+    timestamp,
+    points,
+    lag(points) over (partition by player_id order by timestamp) as previous_points,
+    points - lag(points) over (partition by player_id order by timestamp) as points_change
+  from
+    player_changes
+),
+
+-- 处理初始积分为 NULL 的情况，将 NULL 转换为 0
+player_points_changes_clean as (
+  select
+    player_id,
+    timestamp,
+    points,
+    previous_points,
+    coalesce(points_change, points) as points_change  -- 如果 previous_points 为 NULL，则积分变动量为当前积分
+  from
+    player_points_changes
+),
+
+player_points_increment as (
+  -- 筛选出积分增加的记录
+  select
+    player_id,
+    sum(points_change) as total_points_added
+  from
+    player_points_changes_clean
+  where
+    points_change > 0  -- 只考虑积分增加的情况
+  group by
+    player_id
+)
+
+select
+  player_id,
+  total_points_added
+from
+  player_points_increment
