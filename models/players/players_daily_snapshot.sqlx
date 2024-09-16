@@ -1,0 +1,67 @@
+config {
+  type: "incremental",
+  schema: "players",
+  tags: ["daily_snapshot"],
+  partition_by: "snapshot_date",
+  unique_key: ["steam_id", "snapshot_date"],
+}
+
+-- 获取上次已处理的最大日期
+declare last_snapshot_date date default (
+  select
+    max(snapshot_date)
+  from
+    ${this}
+);
+
+-- 如果不存在上次的快照日期，则设置为数据的最小日期
+declare start_date date default (
+  select
+    ifnull(last_snapshot_date, min(date(timestamp)))
+  from
+    ${ref("players_raw_changelog")}
+);
+
+-- 获取需要处理的日期范围
+with date_range as (
+  select
+    generate_date_array(start_date, current_date()) as snapshot_dates
+),
+snapshot_dates as (
+  select
+    snapshot_date
+  from
+    date_range,
+    unnest(snapshot_dates) as snapshot_date
+),
+
+-- 为每个用户和每个快照日期获取最新的变更记录
+latest_user_changes as (
+  select
+    user_id,
+    snapshot_date,
+    array_agg(struct(
+      timestamp,
+      -- 用户的其他属性字段
+      user_name,
+      email,
+      -- ...
+    ) order by timestamp desc limit 1)[offset(0)] as latest_change
+  from
+    snapshot_dates sd
+  join
+    ${ref("players_raw_changelog")} uc
+  on
+    date(uc.timestamp) <= sd.snapshot_date
+  group by
+    user_id,
+    snapshot_date
+)
+
+-- 输出每日快照
+select
+  user_id,
+  snapshot_date,
+  latest_change.*
+from
+  latest_user_changes
