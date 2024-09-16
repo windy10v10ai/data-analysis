@@ -1,6 +1,0 @@
-config {
-    type: "declaration",
-    database: "windy10v10ai",
-    schema: "firestore_export",
-    name: "Players_raw_latest",
-}
