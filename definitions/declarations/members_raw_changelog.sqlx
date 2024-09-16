@@ -2,5 +2,5 @@ config {
     type: "declaration",
     database: "windy10v10ai",
     schema: "firestore_export",
-    name: "members_raw_latest",
+    name: "members_raw_changelog",
 }
