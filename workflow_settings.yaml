@@ -1,5 +1,5 @@
 defaultProject: windy10v10ai
 defaultLocation: asia-northeast1
-defaultDataset: dataform
+defaultDataset: analysis
 defaultAssertionDataset: dataform_assertions
 dataformCoreVersion: 3.0.0
